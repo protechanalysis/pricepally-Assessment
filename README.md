@@ -6,7 +6,7 @@ The project is scoped around agriculture, economic access, trade, and population
 
 ----
 ### Problem Statement
- A Bee-Agro Allie wants to develop a robust data pipeline that collects, cleans, and
+ A Bee-Agro Allied wants to develop a robust data pipeline that collects, cleans, and
  structures data from reliable external sources (such as the World Bank) to support reporting and
  predictive modeling around food supply, economic access to food, and population-driven demand in
  Africa.

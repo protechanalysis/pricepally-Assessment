@@ -43,7 +43,7 @@ jobs:
       - name: Sync files to server
         uses: burnett01/rsync-deployments@5.2
         with:
-          switches: -avzr
+          switches: -avzr --rsync-path="sudo rsync"
           path: ./dags/
           remote_path: /home/github/airflow-v2/dags
           remote_host: ${{ secrets.HOST }}

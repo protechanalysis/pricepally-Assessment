@@ -1,4 +1,4 @@
 config/*
 logs/*
 **/__pycache__/*
-rought/*
+rought/**

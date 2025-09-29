@@ -44,7 +44,7 @@ jobs:
         uses: burnett01/rsync-deployments@5.2
         with:
           switches: -avzr
-          path: ./dags
+          path: ./dags/
           remote_path: /home/github/airflow-v2/dags
           remote_host: ${{ secrets.HOST }}
           remote_user: ${{ secrets.USERNAME }}

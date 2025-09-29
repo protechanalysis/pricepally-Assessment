@@ -6,41 +6,55 @@ The project is scoped around agriculture, economic access, trade, and population
 
 ----
 ### Problem Statement
- A Bee-Agro Allied wants to develop a robust data pipeline that collects, cleans, and
- structures data from reliable external sources (such as the World Bank) to support reporting and
- predictive modeling around food supply, economic access to food, and population-driven demand in
- Africa.
+Bee-Agro Allied lacks an automated system to collect and process agricultural, economic, and demographic data for West Africa. Without a robust data pipeline, the organization cannot efficiently support reporting and predictive modeling for food supply, economic access to food, and population-driven demand, hindering data-driven decision-making in the region.
+
+### Solution
 
 ![workflow_image](image/world_bank_etl.png)
 
-### Features
 
-- Extract → Fetch raw JSON data from the World Bank API.
-- Validate → Use Pandera schemas to enforce data quality.
-- Transform → Pivot long-format indicators into a wide DataFrame with standardized column names.
-- Load → Insert data into PostgreSQL using a COPY + upsert strategy for efficiency.
-- Notification → Email alerts for failed airflow task
+### Data Source
+
+World Bank API (https://data.worldbank.org/) as the primary data source.
+
+Why World Bank?
+- Free, open, and standardized.
+- Provides consistent socio-economic, agricultural, and demographic indicators.
+- Supports multi-country queries for regional analysis.
+
+### Transformations
+The DAG performs these transformations:
+- Extract → Query the World Bank API for each indicatos & country for a specified range of years.
+- Normalize → Convert JSON to pandas DataFrame.
+- Pivot → Reshape into a wide table:
+
+        Rows → Country & Year
+        Columns → Indicators (renamed with snake_case from   indicators_column_names)
+
+- Data Validation → Ensure data consistency and integrity
+
+- Load → Insert into PostgreSQL table:
+
+        Target table: west_african_agri_metrics_wide
+
+- Notification → email alerting for failed task
 
 ---
 
 ### Technologies Used
 
-- Python – Core ETL logic
+- Python – ETL business logic
 
-- Pandas – Transformation & pivoting
+- PostgreSQL – Target storage
 
-- Pandera – Data quality validation
+- Airflow – Orchestration and scheduling
 
-- Postgres – Database storage
-
-- Airflow – Orchestration & scheduling
-
-- Docker – Reproducible environment
+- Docker + Docker Compose – Reproducible local setup
 
 ----
 ### Repository Structure
 ```graphql
-
+├── .github/                  # CI/CD to remote server 
 ├── dags/                     # Airflow DAG definitions
 │   └── task.py               # Main DAG 
 │
@@ -58,7 +72,6 @@ The project is scoped around agriculture, economic access, trade, and population
 ├── docker-compose.yaml       # Local Airflow/Postgres services
 ├── Dockerfile                # Custom Airflow image
 ├── requirement.txt           # Python dependencies
-└── README.md                 # Documentation (this file)
 
 ```
 
@@ -68,7 +81,6 @@ The project is scoped around agriculture, economic access, trade, and population
 1. Clone the repository
 ```bash
 git clone https://github.com/your-username/pricepally-etl.git
-cd pricepally-etl
 ```
 2. Build and Start services with Docker Compose
 ```bash
@@ -112,11 +124,39 @@ key: "email_sender"
 value: "email address"
 
 # email_password
-key: "email_password"
+key: "password_email"
 value: "email app password"
 
 # email_receiver
 key: "email_receiver"
 value: "email address"
 ```
+---
 
+### Outcome
+
+Once deployed, this pipeline provides a clean, validated, wide-format dataset containing agriculture, economy, trade, and population indicators for ECOWAS countries.
+
+--- 
+Dag Run
+
+![dag_image](image/dag_runs.png)
+---
+Database Data View
+
+![data](image/postgres_data.png)
+---
+Failed Task and Alert
+
+![task](image/failed_task.png)
+
+
+![task2](image/failed_task_alert.png)
+----
+This dataset supports:
+
+- Business reporting (supply-demand trends)
+
+- Policy evaluation (trade/import dependencies)
+
+- Predictive modeling (population-driven demand forecasting)

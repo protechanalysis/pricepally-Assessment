@@ -1,9 +1,8 @@
-# ECOWAS (Economic Community of West African States)
 # Dictionary maps ISO3 country codes with country full names.
 ecowas_country = {
     "BEN": "Benin",
     "BFA": "Burkina Faso",
-    "CPV": "Cabo Verde",
+    "CPV": "Cape Verde",
     "CIV": "Côte d'Ivoire",
     "GMB": "The Gambia",
     "GHA": "Ghana",
@@ -19,7 +18,6 @@ ecowas_country = {
 }
 
 # Dictionary maps World Bank indicator codes with descriptions.
-# These are the raw codes used for API queries.
 indicators = {
     # --- Agriculture & Food Supply ---
     "AG.PRD.FOOD.XD": "Food production index",
@@ -40,7 +38,6 @@ indicators = {
 }
 
 # After pivoting the API response into wide format,
-# we rename columns to concise, snake_case names for easier processing & SQL use.
 indicators_column_names = {
     "AG.PRD.FOOD.XD": "food_production_idx",
     "AG.YLD.CREL.KG": "cereal_yield_kg_per_hectare",
@@ -55,17 +52,11 @@ indicators_column_names = {
     "SP.POP.GROW": "population_growth_annual_pct"
 }
 
-# This is the target table for storing cleaned & validated wide-format metrics.
 database_table_name = "west_african_agri_metrics_wide"
 
-# Defines start and end year for API queries.
-# Adjust as needed when updating the dataset.
 start_year = 1999
 end_year = 2022
 
-# Location where raw JSON responses from the World Bank API will be stored.
-# This helps with debugging and replaying without re-calling the API.
 json_folder = "/opt/airflow/tmp/raw_data.json"
 
-# Must match the connection ID defined in Airflow UI (Admin → Connections).
 postgres_conn_id = "postgres_default"

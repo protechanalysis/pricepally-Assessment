@@ -14,13 +14,20 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 def extract_world_bank_data() -> json:
+    """
+    Extract World Bank indicator data for ECOWAS countries and save to JSON.
+    
+    Queries the World Bank API for multiple indicators across ECOWAS countries
+    within the specified date range. All data is aggregated and saved to a file.
+    
+    Returns:
+        json: List of all indicator data records, or None if extraction fails.
+    
+    """
     all_data = []
-
-    # Concatenate all ECOWAS ISO3 country codes into the semicolon-separated format required by World Bank API
     country_str = ";".join(ecowas_country)
     logging.info(f"Beginning data extraction for {len(ecowas_country)} countries.")
 
-    # Loop through each indicator code configured in util.config
     for indicator_code, indicator_name in indicators.items():
 
         # Construct the World Bank API URL
@@ -28,18 +35,18 @@ def extract_world_bank_data() -> json:
             f"http://api.worldbank.org/v2/country/{country_str}/indicator/{indicator_code}"
             f"?format=json&date={start_year}:{end_year}&per_page=1000"
         )
-        logging.info(f"Fetching data for indicator: {indicator_name}...")
+        logging.info(f"Fetching data for indicator: {indicator_name}")
 
         try:
             # Make GET request to API with a 30s timeout safeguard
             response = requests.get(url, timeout=30)
-            response.raise_for_status()  # Raise exception if HTTP status code indicates error (4xx, 5xx)
+            response.raise_for_status()  # Raise exception if HTTP status code indicates error
 
             data = response.json()
 
             # World Bank API responses are a list: [metadata, data]. We want index 1.
             if len(data) > 1 and data[1]:
-                all_data.extend(data[1])  # Append records to our cumulative list
+                all_data.extend(data[1]) 
             else:
                 logging.warning(f"No data returned for indicator: {indicator_code}")
 
@@ -51,16 +58,15 @@ def extract_world_bank_data() -> json:
         except ValueError as json_err:
             logging.error(f"JSON decode error for {indicator_code}: {json_err}")
 
-        # sleep to avoid overwhelming the API (rate-limiting best practice)
         sleep(0.5)
-
+    logging.info("Data extraction completed")
     if not all_data:
         logging.error("Extraction failed. No data was retrieved from the API.")
         return None
 
-    # Save raw data for traceability and reproducibility
+    # Save raw data 
     logging.info(f"Saving raw extracted data to {json_folder}")
-    os.makedirs("/opt/airflow/tmp", exist_ok=True)  # Ensure base folder exists (important for Airflow workers)
+    os.makedirs("/opt/airflow/tmp", exist_ok=True)
 
     # Dump JSON into configured landing file
     with open(json_folder, 'w', encoding='utf-8') as f:
@@ -68,6 +74,18 @@ def extract_world_bank_data() -> json:
 
 
 def transform_to_dataframe() -> pd.DataFrame:
+    """
+    Transform raw World Bank JSON data into a clean wide-format DataFrame.
+    
+    Loads the previously extracted JSON data, flattens nested structures,
+    converts to DataFrame, and pivots from long to wide format where each
+    row represents a country-year and columns represent different indicators.
+    
+    Returns:
+        pd.DataFrame: Wide-format DataFrame with countries and years as rows,
+                        indicators as columns. Empty DataFrame if raw data is empty.
+    
+    """
     logging.info(f"Reading raw data from {json_folder}")
 
     # Load previously saved JSON file
@@ -83,33 +101,24 @@ def transform_to_dataframe() -> pd.DataFrame:
     records = []
     for entry in raw_data:
         records.append({
-            "country_name": entry.get("country", {}).get("value"),          # Human-readable country name
-            "country_iso3": entry.get("countryiso3code"),                   # ISO3 country code
-            "year": entry.get("date"),                                      # Year as string
-            "indicator_code": entry.get("indicator", {}).get("id"),         # WB indicator code
-            "indicator_name": indicators.get(entry.get("indicator", {}).get("id")),  # Map to descriptive name
-            "value": entry.get("value")                                     # Actual numeric value
+            "country_name": entry.get("country", {}).get("value"),          
+            "country_iso3": entry.get("countryiso3code"),              
+            "year": entry.get("date"),  
+            "indicator_code": entry.get("indicator", {}).get("id"), 
+            "indicator_name": indicators.get(entry.get("indicator", {}).get("id")), 
+            "value": entry.get("value")                                   
         })
 
     # Convert list of dicts into DataFrame
     df = pd.DataFrame(records)
 
-    logging.info("Cleaning and transforming data...")
-
-    # # Drop rows missing critical fields (country/year/indicator/value)
-    # df.dropna(subset=["country_name", "year", "indicator_code", "value"], inplace=True)
+    logging.info("Cleaning and transforming data")
 
     # Convert year and value fields into numeric, coercing invalid entries to NaN
     df['year'] = pd.to_numeric(df['year'], errors='coerce')
     df['value'] = pd.to_numeric(df['value'], errors='coerce')
 
-    # # Drop rows where numeric conversion failed
-    # df.dropna(subset=['year', 'value'], inplace=True)
-
-    # Cast year into integer (safe after coercion + dropna)
-    # df['year'] = df['year'].astype(int)
-
-    logging.info("Pivoting data from long to wide format...")
+    logging.info("Pivoting data from long to wide format")
 
     # Pivot: each row is (country, iso, year), each column is an indicator
     df_wide = df.pivot_table(
@@ -118,12 +127,10 @@ def transform_to_dataframe() -> pd.DataFrame:
         values="value"
     ).reset_index()
 
-    # Drop Pandas’ extra column index name (cosmetic cleanup)
     df_wide.columns.name = None
 
-    logging.info("Renaming columns for clarity...")
+    logging.info("Renaming columns for clarity")
 
-    # Rename indicator codes to more descriptive names (from config mapping)
     df_wide.rename(columns=indicators_column_names, inplace=True)
 
     logging.info(f"Successfully transformed data. Final shape: {df.shape}")
@@ -131,17 +138,26 @@ def transform_to_dataframe() -> pd.DataFrame:
 
 
 def validate_data() -> pd.DataFrame:
-    logging.info("Validating data against the WIDE-FORMAT quality schema...")
+    """
+    Validate transformed DataFrame against the wide-format quality schema.
+    
+    Runs the transformation pipeline to get fresh data, then validates it
+    using Pandera schema rules. Logs all validation errors if checks fail.
+    
+    Returns:
+        pd.DataFrame: Validated DataFrame that passes all schema checks.
+    
+    Raises:
+        pa.errors.SchemaErrors: If data fails validation. Failure cases are
+                                logged before raising the exception.
+    """
+    logging.info("Validating data against the WIDE-FORMAT quality schema")
 
     try:
-        # Fetch schema definition object (defined in includes.validation)
         schema = get_wide_schema()
 
         # Re-run transformation pipeline to get fresh DataFrame
         df = transform_to_dataframe()
-
-        # Validate DataFrame against schema.
-        # lazy=True → collect ALL validation errors before raising, instead of failing fast.
         validated_df = schema.validate(df, lazy=True)
 
         logging.info("Data validation successful.")
@@ -151,4 +167,4 @@ def validate_data() -> pd.DataFrame:
         # If validation fails, log all errors for debugging
         logging.error("Data validation failed. See failure cases below.")
         logging.error(err.failure_cases)
-        raise err  # Re-raise so pipeline halts instead of silently continuing
+        raise err 

@@ -17,7 +17,7 @@ def task_fail_alert(context):
     dag_owner = context["params"].get("dag_owner")
 
     email_sender = Variable.get('email_sender')
-    email_password = Variable.get('email_password')
+    email_password = Variable.get('password_email')
     email_receiver = Variable.get('email_receiver')
 
     print(context)

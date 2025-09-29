@@ -1,30 +1,20 @@
-import requests              # For making HTTP requests to the World Bank API
-import pandas as pd          # For handling tabular data and transformations
-import pandera as pa         # For DataFrame schema validation (data quality checks)
-import logging               # For structured logging
-import json                  # For reading/writing JSON data
-import os                    # For filesystem operations (creating directories, etc.)
-from time import sleep       # For introducing delays between API calls
+import requests
+import pandas as pd
+import pandera as pa
+import logging
+import json
+import os
+from time import sleep  
 from datetime import datetime
-from pathlib import Path     # For working with file system paths in an object-oriented way
+from pathlib import Path 
+from util.config import ecowas_country, indicators, start_year, end_year, indicators_column_names, json_folder
+from includes.validation import get_wide_schema
 
-# Import project-specific configurations and helper functions
-from util.config import (
-    ecowas_country,          # List of ISO3 codes for ECOWAS countries
-    indicators,              # Dictionary mapping indicator codes -> descriptive names
-    start_year, end_year,    # Range of years for pulling World Bank data
-    indicators_column_names, # Mapping from World Bank codes -> human-readable column names
-    json_folder              # Path where raw JSON API responses should be stored
-)
-from includes.validation import get_wide_schema  # Function returning Pandera schema for validation
-
-
-# Configure logging format and level
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def extract_world_bank_data() -> json:
-    all_data = []  # Will accumulate all data entries across indicators
+    all_data = []
 
     # Concatenate all ECOWAS ISO3 country codes into the semicolon-separated format required by World Bank API
     country_str = ";".join(ecowas_country)
@@ -45,7 +35,6 @@ def extract_world_bank_data() -> json:
             response = requests.get(url, timeout=30)
             response.raise_for_status()  # Raise exception if HTTP status code indicates error (4xx, 5xx)
 
-            # Parse JSON response into Python list/dict
             data = response.json()
 
             # World Bank API responses are a list: [metadata, data]. We want index 1.
@@ -62,15 +51,14 @@ def extract_world_bank_data() -> json:
         except ValueError as json_err:
             logging.error(f"JSON decode error for {indicator_code}: {json_err}")
 
-        # Add short sleep to avoid overwhelming the API (rate-limiting best practice)
+        # sleep to avoid overwhelming the API (rate-limiting best practice)
         sleep(0.5)
 
-    # If no data was retrieved at all, log error and abort
     if not all_data:
         logging.error("Extraction failed. No data was retrieved from the API.")
         return None
 
-    # Save raw data to disk for traceability and reproducibility
+    # Save raw data for traceability and reproducibility
     logging.info(f"Saving raw extracted data to {json_folder}")
     os.makedirs("/opt/airflow/tmp", exist_ok=True)  # Ensure base folder exists (important for Airflow workers)
 
